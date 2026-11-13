@@ -34,7 +34,18 @@ void CarpetTracker_SetPositions(CCTK_ARGUMENTS) {
       assert(sn >= 0 and sn < nsurfaces);
 
       if (sf_active[sn]) {
-        if (sf_valid[sn] > 0) {
+        /*
+         * Allow *active* surfaces with sf_valid == 0 to be tracked,
+         * so that thorns can use this value to move the centroid of a surface
+         * without setting other properties that sf_valid > 0 implies.
+         * Check that the centroid is at least finite in that case, since
+         * if sf_valid == 0 for other reasons, it may contain stale values.
+         */
+        if (sf_valid[sn] > 0 ||
+            (sf_valid[sn] == 0 && 
+            isfinite(sf_centroid_x[sn]) && 
+            isfinite(sf_centroid_y[sn]) && 
+            isfinite(sf_centroid_z[sn]))) {
 
           if (verbose) {
             CCTK_VInfo(CCTK_THORNSTRING, "Setting position of refined region "
@@ -52,10 +63,11 @@ void CarpetTracker_SetPositions(CCTK_ARGUMENTS) {
           position_y[n] = sf_centroid_y[sn];
           position_z[n] = sf_centroid_z[sn];
 
-        } else {
+        } else { // sf_valid < 0 || sf_valid == 0 but centroid not finite
 
           if (verbose) {
             CCTK_VInfo(CCTK_THORNSTRING, "No position information available "
+                                         "(invalid or non-finite centroid) "
                                          "for refined region #%d from surface "
                                          "#%d",
                        n + 1, sn);
